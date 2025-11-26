@@ -328,6 +328,61 @@ app.post("/login", async (req, res) => {
 // =========================
 app.get("/weather", async (req, res) => {
   // Implement logic here based on the TODO 3.
+    try {
+        // 1) Read Authorization header
+        const auth = req.headers.authorization;
+        if (!auth) {
+            return res.status(401).json({ error: "Missing token" });
+        }
+
+        // 2) Extract token ("Bearer TOKEN")
+        const parts = auth.split(" ");
+        if (parts.length !== 2 || parts[0] !== "Bearer") {
+            return res.status(401).json({ error: "Invalid token" });
+        }
+        const token = parts[1];
+
+        // 3) Verify token
+        try {
+            jwt.verify(token, JWT_SECRET);
+        } catch (e) {
+            return res.status(401).json({ error: "Invalid token" });
+        }
+
+        // 4) Read city from query
+        const city = req.query.city;
+        if (!city) {
+            return res.status(400).json({ error: "City required" });
+        }
+
+        // 5) Prepare API URL
+        const url = `https://goweather.herokuapp.com/weather/${encodeURIComponent(
+            city
+        )}`;
+
+        // 6) Call external weather API (Node 18+ has global fetch)
+        const weatherResponse = await fetch(url);
+        if (!weatherResponse.ok) {
+            return res.status(500).json({ error: "Error from weather API" });
+        }
+
+        // 7) Parse JSON
+        const data = await weatherResponse.json();
+
+        // 8) Return structured weather data
+        return res.json({
+            city,
+            temp: data.temperature,
+            description: data.description,
+            wind: data.wind,
+            raw: data,
+        });
+    } catch (err) {
+        console.error("Weather error:", err);
+        return res
+            .status(500)
+            .json({ error: "Server error during weather fetch" });
+    }
 });
 
 // Start server
